@@ -1,82 +1,127 @@
-      document.addEventListener('DOMContentLoaded', () => {
-          const lottoBoard = document.getElementById('lotto-board');
-          const generateBtn = document.getElementById('generate-btn');
-          const numberOfRows = 10;
+document.addEventListener('DOMContentLoaded', () => {
+    const gameBoard = document.getElementById('game-board');
+    const startBtn = document.getElementById('start-btn');
+    const timerDisplay = document.getElementById('timer');
+    const bestTimeDisplay = document.getElementById('best-time');
+    const resultDisplay = document.getElementById('result-display');
 
-          // Initialize the board with empty rows
-          for (let i = 0; i < numberOfRows; i++) {
-              const row = document.createElement('div');
-              row.classList.add('lotto-row');
-              lottoBoard.appendChild(row);
-          }
+    let timer;
+    let time = 0;
+    let currentNumber = 1;
+    let bestTime = localStorage.getItem('bestTime') || '--';
+    bestTimeDisplay.textContent = bestTime;
 
-          generateBtn.addEventListener('click', () => {
-              if (generateBtn.textContent === '다시 뽑기') {
-                  resetBoard();
-              } else {
-                  startGeneration();
-              }
-          });
+    startBtn.addEventListener('click', startGame);
 
-          function startGeneration() {
-              generateBtn.disabled = true;
-              generateBtn.textContent = '생성 중...';
-              resetBoard(false); // Clear board without resetting button
+    function startGame() {
+        resetGame();
+        startBtn.style.display = 'none';
+        spawnCircles();
+        startTimer();
+    }
 
-              let currentRow = 0;
-              const interval = setInterval(() => {
-                  if (currentRow < numberOfRows) {
-                      generateLottoNumbers(currentRow);
-                      currentRow++;
-                  } else {
-                      clearInterval(interval);
-                      generateBtn.disabled = false;
-                      generateBtn.textContent = '다시 뽑기';
-                  }
-              }, 200); // 200ms interval for each row to appear
-          }
+    function resetGame() {
+        time = 0;
+        currentNumber = 1;
+        timerDisplay.textContent = '0.00';
+        resultDisplay.textContent = '';
+        gameBoard.innerHTML = '';
+        clearInterval(timer);
+    }
 
-          function generateLottoNumbers(rowIndex) {
-              const numbers = new Set();
-              while (numbers.size < 6) {
-                  numbers.add(Math.floor(Math.random() * 45) + 1);
-              }
+    function startTimer() {
+        const startTime = Date.now();
+        timer = setInterval(() => {
+            time = ((Date.now() - startTime) / 1000).toFixed(2);
+            timerDisplay.textContent = time;
+        }, 10);
+    }
 
-              const sortedNumbers = Array.from(numbers).sort((a, b) => a - b);
-              displayNumbers(rowIndex, sortedNumbers);
-          }
+    let circlePositions = [];
 
-          function displayNumbers(rowIndex, numbers) {
-              const row = lottoBoard.children[rowIndex];
-              row.innerHTML = ''; // Clear previous content
-              row.classList.add('filled');
+    function spawnCircles() {
+        circlePositions = [];
+        for (let i = 1; i <= 10; i++) {
+            const circle = document.createElement('div');
+            circle.classList.add('circle');
+            circle.textContent = i;
+            circle.dataset.number = i;
 
-              numbers.forEach(number => {
-                  const circle = document.createElement('div');
-                  circle.classList.add('number-circle');
-                  circle.textContent = number;
-                  circle.style.backgroundColor = getNumberColor(number);
-                  row.appendChild(circle);
-              });
-          }
+            const { x, y } = getNonOverlappingRandomPosition();
+            circlePositions.push({ x, y });
+            
+            circle.style.left = `${x}px`;
+            circle.style.top = `${y}px`;
 
-          function getNumberColor(number) {
-              if (number <= 10) return '#fbc400'; // Yellow
-              if (number <= 20) return '#69c8f2'; // Blue
-              if (number <= 30) return '#ff7272'; // Red
-              if (number <= 40) return '#aaaaaa'; // Gray
-              return '#b0d840'; // Green
-          }
+            circle.addEventListener('click', handleCircleClick);
+            gameBoard.appendChild(circle);
+        }
+    }
 
-          function resetBoard(resetButton = true) {
-              Array.from(lottoBoard.children).forEach(row => {
-                  row.innerHTML = '';
-                  row.classList.remove('filled');
-              });
+    function getNonOverlappingRandomPosition() {
+        let position;
+        let overlaps;
+        const circleSize = 50;
+        const maxAttempts = 100;
+        let attempts = 0;
 
-              if (resetButton) {
-                generateBtn.disabled = false;
-                generateBtn.textContent = '행운의 번호 생성';
-              }
-          }
-      });
+        do {
+            position = getRandomPosition();
+            overlaps = circlePositions.some(existingPosition => {
+                const distance = Math.sqrt(
+                    Math.pow(position.x - existingPosition.x, 2) +
+                    Math.pow(position.y - existingPosition.y, 2)
+                );
+                return distance < circleSize; // diameter
+            });
+            attempts++;
+        } while (overlaps && attempts < maxAttempts);
+
+        if (overlaps) {
+            // Fallback if we can't find a non-overlapping position
+            console.warn("Could not find a non-overlapping position. The circle may overlap.");
+        }
+
+        return position;
+    }
+
+    function getRandomPosition() {
+        const boardWidth = gameBoard.clientWidth;
+        const boardHeight = gameBoard.clientHeight;
+        const circleSize = 50;
+
+        const x = Math.random() * (boardWidth - circleSize);
+        const y = Math.random() * (boardHeight - circleSize);
+
+        return { x, y };
+    }
+
+    function handleCircleClick(e) {
+        const clickedNumber = parseInt(e.target.dataset.number);
+
+        if (clickedNumber === currentNumber) {
+            e.target.remove();
+            currentNumber++;
+
+            if (currentNumber > 10) {
+                endGame();
+            }
+        }
+    }
+
+    function endGame() {
+        clearInterval(timer);
+        resultDisplay.textContent = `Your time: ${time} seconds!`;
+
+        if (bestTime === '--' || time < parseFloat(bestTime)) {
+            bestTime = time;
+            localStorage.setItem('bestTime', bestTime);
+            bestTimeDisplay.textContent = bestTime;
+            resultDisplay.textContent += ' New best time!';
+        }
+
+        gameBoard.innerHTML = '';
+        startBtn.textContent = 'Play Again';
+        startBtn.style.display = 'block';
+    }
+});
