@@ -1,60 +1,82 @@
-document.addEventListener('DOMContentLoaded', () => {
-    const generateBtn = document.getElementById('generate-btn');
-    const lottoNumbersDiv = document.getElementById('lotto-numbers');
-    const copyFeedback = document.getElementById('copy-feedback');
-    let generatedNumbers = [];
+      document.addEventListener('DOMContentLoaded', () => {
+          const lottoBoard = document.getElementById('lotto-board');
+          const generateBtn = document.getElementById('generate-btn');
+          const numberOfRows = 10;
 
-    const colorPalettes = [
-        ['#ff9a9e', '#fad0c4'], // 0-10
-        ['#a1c4fd', '#c2e9fb'], // 11-20
-        ['#d4fc79', '#96e6a1'], // 21-30
-        ['#f6d365', '#fda085'], // 31-40
-        ['#f093fb', '#f5576c']  // 41-45
-    ];
+          // Initialize the board with empty rows
+          for (let i = 0; i < numberOfRows; i++) {
+              const row = document.createElement('div');
+              row.classList.add('lotto-row');
+              lottoBoard.appendChild(row);
+          }
 
-    generateBtn.addEventListener('click', () => {
-        lottoNumbersDiv.innerHTML = '';
-        copyFeedback.style.opacity = 0;
-        generatedNumbers = [];
+          generateBtn.addEventListener('click', () => {
+              if (generateBtn.textContent === '다시 뽑기') {
+                  resetBoard();
+              } else {
+                  startGeneration();
+              }
+          });
 
-        const numbers = new Set();
-        while (numbers.size < 6) {
-            numbers.add(Math.floor(Math.random() * 45) + 1);
-        }
+          function startGeneration() {
+              generateBtn.disabled = true;
+              generateBtn.textContent = '생성 중...';
+              resetBoard(false); // Clear board without resetting button
 
-        generatedNumbers = Array.from(numbers).sort((a, b) => a - b);
+              let currentRow = 0;
+              const interval = setInterval(() => {
+                  if (currentRow < numberOfRows) {
+                      generateLottoNumbers(currentRow);
+                      currentRow++;
+                  } else {
+                      clearInterval(interval);
+                      generateBtn.disabled = false;
+                      generateBtn.textContent = '다시 뽑기';
+                  }
+              }, 200); // 200ms interval for each row to appear
+          }
 
-        generatedNumbers.forEach((number, index) => {
-            const numberSpan = document.createElement('span');
-            numberSpan.className = 'number';
-            numberSpan.textContent = number;
+          function generateLottoNumbers(rowIndex) {
+              const numbers = new Set();
+              while (numbers.size < 6) {
+                  numbers.add(Math.floor(Math.random() * 45) + 1);
+              }
 
-            const paletteIndex = Math.floor((number - 1) / 10);
-            const colors = colorPalettes[paletteIndex];
-            numberSpan.style.background = `linear-gradient(135deg, ${colors[0]}, ${colors[1]})`;
-            
-            lottoNumbersDiv.appendChild(numberSpan);
+              const sortedNumbers = Array.from(numbers).sort((a, b) => a - b);
+              displayNumbers(rowIndex, sortedNumbers);
+          }
 
-            setTimeout(() => {
-                numberSpan.classList.add('visible');
-            }, index * 150);
-        });
-    });
+          function displayNumbers(rowIndex, numbers) {
+              const row = lottoBoard.children[rowIndex];
+              row.innerHTML = ''; // Clear previous content
+              row.classList.add('filled');
 
-    lottoNumbersDiv.addEventListener('click', () => {
-        if (generatedNumbers.length === 0) return;
+              numbers.forEach(number => {
+                  const circle = document.createElement('div');
+                  circle.classList.add('number-circle');
+                  circle.textContent = number;
+                  circle.style.backgroundColor = getNumberColor(number);
+                  row.appendChild(circle);
+              });
+          }
 
-        const numbersString = generatedNumbers.join(', ');
-        navigator.clipboard.writeText(numbersString).then(() => {
-            copyFeedback.textContent = '✅ 번호가 복사되었습니다!';
-            copyFeedback.style.opacity = 1;
-            setTimeout(() => {
-                copyFeedback.style.opacity = 0;
-            }, 2000);
-        }).catch(err => {
-            console.error('복사 실패:', err);
-            copyFeedback.textContent = '복사에 실패했습니다.';
-            copyFeedback.style.opacity = 1;
-        });
-    });
-});
+          function getNumberColor(number) {
+              if (number <= 10) return '#fbc400'; // Yellow
+              if (number <= 20) return '#69c8f2'; // Blue
+              if (number <= 30) return '#ff7272'; // Red
+              if (number <= 40) return '#aaaaaa'; // Gray
+              return '#b0d840'; // Green
+          }
+
+          function resetBoard(resetButton = true) {
+              Array.from(lottoBoard.children).forEach(row => {
+                  row.innerHTML = '';
+                  row.classList.remove('filled');
+              });
+
+              if (resetButton) {
+                generateBtn.disabled = false;
+                generateBtn.textContent = '행운의 번호 생성';
+              }
+          }
+      });
